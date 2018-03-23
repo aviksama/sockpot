@@ -9,9 +9,9 @@ from gevent.socket import error
 from gevent import signal
 import gevent
 
-from sockpot.conf import AuthFlow
-from sockpot.conf import config
-from sockpot.conf import ClientTerminated
+from .conf.auth import AuthFlow
+from .conf import config
+from .conf.exc import ClientTerminated
 
 
 class Dummy(object):

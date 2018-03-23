@@ -4,9 +4,9 @@ from socket import error, timeout
 
 from os import error as oserror
 from six import string_types
-from sockpot.conf import AuthFlow
-from sockpot.conf import ConnectionError, MessageMalformed
-from sockpot.conf import config
+from .conf.auth import AuthFlow
+from .conf.exc import ConnectionError, MessageMalformed
+from .conf import config
 
 
 class Connection(object):
