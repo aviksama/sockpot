@@ -1,8 +1,8 @@
 import sys
 import re
 import os
-from sockpot.server import Server, Dummy
-from sockpot.conf.utils import import_by_path
+from .server import Server, Dummy
+from .conf.utils import import_by_path
 
 
 def find_calee(*sysargs):
