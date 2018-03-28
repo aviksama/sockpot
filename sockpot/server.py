@@ -54,7 +54,7 @@ class Server(object):
                 continue
             c_socket.settimeout(config.get('CONNECTION_TIMEOUT', 60))
             # todo: log the client address
-            glet = gevent.spawn(self.listener, c_socket, c_addr)
+            glet = gevent.spawn(self.listener, c_socket, c_addr, auth.boundary)
             glet.start()
             self._clients.update({c_socket: glet})
 
@@ -75,7 +75,7 @@ class Server(object):
         self.exit()
 
     @staticmethod
-    def listener(client_socket, client_addr):
+    def listener(client_socket, client_addr, boundary):
         try:
             while client_socket:
                 data = client_socket.recv(100)

@@ -1,6 +1,8 @@
 import json
 import socket
 from socket import error, timeout
+import random
+import string
 
 from os import error as oserror
 from six import string_types
@@ -21,11 +23,13 @@ class Connection(object):
         connection = socket.socket()
         try:
             connection.connect((host, port))
-            auth = AuthFlow(client_socket=connection)
+            boundary = self._create_boundary()
+            auth = AuthFlow(client_socket=connection, boundary=boundary)
             auth.start_client_operation()
             connection.settimeout(config.get('CONNECTION_TIMEOUT', 10))
             self.connection = connection
             self.__class__._connections.append(connection)
+            self._boundary = boundary
         except timeout:
             connection.close()
             raise ConnectionError("connection timed out")
@@ -58,11 +62,20 @@ class Connection(object):
         else:
             raise MessageMalformed("You must specify a supported message body")
         if message:
-            self._send(message=message)
+            self._send(message=message, )
 
     def close(self):
         self._close()
 
     def _close(self):
         self.connection.close()
+
+    @staticmethod
+    def _create_boundary():
+        charlength = random.randint(11, 18)
+        part = lambda: ''.join(random.sample(string.letters+string.digits+string.punctuation,
+                                             charlength))
+        return part() + '_'*charlength*3 + part() + '_'*charlength*3 + part()
+
+
 
