@@ -1,7 +1,9 @@
 import sys
 import re
 import os
-from .server import Server, Dummy
+
+from .server import Server
+from .dummy import Dummy, dummy
 from .conf.utils import import_by_path
 
 
@@ -15,7 +17,7 @@ def find_calee(*sysargs):
     module_matcher = re.compile('--callee\s*=\s*([a-zA-z0-9_\-.]+)')
     module_path = module_matcher.search(args)
     if not module_path:
-        call_to = Dummy.writer
+        call_to = dummy
     else:
         module_path = module_path.groups()[0]
         try:

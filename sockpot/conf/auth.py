@@ -2,6 +2,7 @@ import hashlib
 from socket import socket
 from socket import error, timeout
 from datetime import datetime, timedelta
+
 from six import string_types
 
 from . import config
@@ -12,8 +13,10 @@ class Credentials(object):
     CLIENT_TYPE = 1
     SERVER_TYPE = 2
 
-    def __init__(self, passkey=None, auth_type=CLIENT_TYPE):
+    def __init__(self, passkey=None, auth_type=CLIENT_TYPE, conf=None):
         self.passkey = passkey
+        assert (isinstance(conf, dict) or conf is None)
+
         if not passkey:
             assert (auth_type in [self.CLIENT_TYPE, self.SERVER_TYPE])
             if auth_type == self.CLIENT_TYPE:
@@ -21,10 +24,11 @@ class Credentials(object):
             else:
                 self.timeformat = '%H%M-%m(%B)%d(%a)%Y'
             self.auth_type = auth_type
+        self.config = conf
 
     @property
     def digest(self):
-        salt = str(config.get('SECRET_KEY'))
+        salt = str((self.config or config).get('SECRET_KEY'))
         passkey = self.passkey
         if not self.passkey:
             passkey = datetime.utcnow().strftime(self.timeformat)
@@ -33,7 +37,7 @@ class Credentials(object):
 
     def is_valid_digest(self, digest, flexibility=3):
         assert(isinstance(flexibility, int) and flexibility % 2 != 0)
-        salt = str(config.get('SECRET_KEY'))
+        salt = str((self.config or config).get('SECRET_KEY'))
         if not self.passkey:
             hash_range = sorted(list(map(lambda x: x - flexibility/2, range(flexibility))),
                                 key=lambda x: abs(x))
@@ -81,7 +85,7 @@ class AuthFlow(object):
 
     def start_server_operation(self):
         try:
-            data = self.socket.recv(216)
+            data = self.socket.recv(150) # maximum length it has to recv
             data.decode('utf-8')
             head, boundary, auth_name, client_token = data.rsplit(":")  # can cause ValueError
             assert(head == 'BOUNDARY')
@@ -97,8 +101,3 @@ class AuthFlow(object):
             self.socket.send("Invalid Auth")
             self.socket.close()
             return False
-
-
-
-
-

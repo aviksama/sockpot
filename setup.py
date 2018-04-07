@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="sockpot",
-    version="0.1a0",
+    version="0.1a1",
     author='Avik',
     author_email="eml2avik@gmail.com",
     packages=['sockpot', 'sockpot/conf'],

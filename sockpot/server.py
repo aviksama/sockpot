@@ -2,30 +2,20 @@ from gevent import monkey
 monkey.patch_all()
 
 import sys
+import json
 from socket import timeout
+from types import GeneratorType
+from io import BytesIO
 
 from gevent import socket
 from gevent.socket import error
 from gevent import signal
 import gevent
+import six
 
 from .conf.auth import AuthFlow
 from .conf import config
-from .conf.exc import ClientTerminated
-
-
-class Dummy(object):
-    @staticmethod
-    def writer(data):
-        with open('testfile.in', 'a') as fp:
-            fp.write("received: " + data + "\n")
-
-class Asa(object):
-    def __init__(self):
-        self.__class__.func=Dummy.writer
-    @staticmethod
-    def some_func():
-        Asa.func('asdasd in asa')
+from .conf.exc import ClientTerminated, ConfigurationError
 
 
 class Server(object):
@@ -77,17 +67,55 @@ class Server(object):
     @staticmethod
     def listener(client_socket, client_addr, boundary):
         try:
+            initial = True
+            dataset = BytesIO()
+            if not Server.call_to or not callable(Server.call_to):
+                raise ConfigurationError("No callable found for listener")
             while client_socket:
-                data = client_socket.recv(100)
+                data = client_socket.recv(1024)
                 if not data:
                     Server._clients.pop(client_socket, None)
                     raise ClientTerminated("Connection closed")
-                if Server.call_to is not None:
-                    Server.call_to.__func__(data)
-                continue
+                if initial is False:
+                    body = data
+                else:
+                    try:
+                        head, body = data.split(boundary, 1)
+                        reply = json.loads(head).get('reply')
+                    except (ValueError, AttributeError):
+                        raise ClientTerminated("Malformed buffer")
+                    initial = False
+                body_parts = body.rsplit(boundary, 1)
+                body = body_parts[0]
+                if six.PY3 and not isinstance(body, bytes):
+                    body = bytes(body, encoding='utf-8')
+                dataset.write(body)
+                if len(body_parts) == 1:
+                    loopexit = False
+                else:
+                    loopexit = True
+
+                if loopexit:
+                    try:
+                        func = Server.call_to.__func__  # staticmethod inside class
+                    except AttributeError:
+                        func = Server.call_to  # functions
+                    dataset.seek(0)
+                    response_data = func(dataset.read())
+                    dataset = BytesIO()
+                    initial = True
+                    if reply is True:
+                        # todo: support for  GeneratorType for stream of data
+                        assert (not isinstance(response_data, GeneratorType))
+                        response_data = str(response_data)
+                        response = response_data + boundary + 'end'
+                        if not isinstance(response, bytes):
+                            response.encode('utf-8')
+                        client_socket.send(response)
+
         except timeout:
             sys.stderr.write(str(client_addr) + ': Connection timeout')
-        except ClientTerminated:
+        except(ClientTerminated, ConfigurationError):
             sys.stderr.write(str(client_addr) + ': Connection closed')
         try:
             client_socket.shutdown(socket.SHUT_RDWR)

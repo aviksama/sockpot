@@ -1,5 +1,4 @@
 import importlib
-import hashlib
 
 
 def import_by_path(path, module=False, silent=False):

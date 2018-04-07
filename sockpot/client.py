@@ -3,9 +3,11 @@ import socket
 from socket import error, timeout
 import random
 import string
-
 from os import error as oserror
+from io import BytesIO
+
 from six import string_types
+
 from .conf.auth import AuthFlow
 from .conf.exc import ConnectionError, MessageMalformed
 from .conf import config
@@ -19,7 +21,7 @@ class Connection(object):
     STRING = 'string'
     _connections = []
 
-    def __init__(self, host='localhost', port=9900,):
+    def __init__(self, host='localhost', port=9900):
         connection = socket.socket()
         try:
             connection.connect((host, port))
@@ -52,17 +54,41 @@ class Connection(object):
         else:
             raise MessageMalformed("only string object supported")
 
-    def send(self, body=None, json_body=None):
+    def _listen(self):
+        dataset = BytesIO()
+        while self.connection:
+            data = self.connection.recv(1024)
+            if not data:
+                break
+            body_parts = data.rsplit(self._boundary, 1)
+            if len(body_parts) == 1:
+                ended = False
+                # not yet ended
+            else:
+                ended = True
+            dataset.write(body_parts[0])
+            if ended:
+                dataset.seek(0)
+                return dataset.read()
+
+    def send(self, body=None, wait_for_reply=False, timeout_secs=10):
         # todo: json or message support should be taken from configurator
+        retval = None
         message = None
-        if json_body and isinstance(json_body, dict):
-            message = json.dumps(json_body)
-        elif body and isinstance(body, string_types) and not message:
+        if body and isinstance(body, string_types) and not message:
             message = str(body)
         else:
             raise MessageMalformed("You must specify a supported message body")
         if message:
-            self._send(message=message, )
+            existing_timeout = self.connection.gettimeout()
+            self.connection.settimeout(timeout_secs)
+            head = json.dumps({'reply': wait_for_reply})
+            message = head+self._boundary+message+self._boundary
+            self._send(message=message)
+            if wait_for_reply is True:
+                retval = self._listen()
+            self.connection.settimeout(existing_timeout)
+            return retval
 
     def close(self):
         self._close()
@@ -72,10 +98,8 @@ class Connection(object):
 
     @staticmethod
     def _create_boundary():
+        # max length 96
         charlength = random.randint(11, 18)
-        part = lambda: ''.join(random.sample(string.letters+string.digits+string.punctuation,
+        part = lambda: ''.join(random.sample(string.letters+string.digits+'~!@#$%^&*',
                                              charlength))
-        return part() + '_'*charlength*3 + part() + '_'*charlength*3 + part()
-
-
-
+        return '---' + part() + '_' * charlength * 3 + part() + '---'

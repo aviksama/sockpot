@@ -21,6 +21,7 @@ class AuthenticationError(ClientError):
     errno = 403
     message = "Authentication failed"
 
+
 class MessageMalformed(ClientError):
     errno = 402
     message = "Couldn't read message"
@@ -38,3 +39,8 @@ class ServerError(ErrorBase):
 class ClientTerminated(ServerError):
     errno = 411
     message = 'client termination'
+
+
+class ConfigurationError(ServerError):
+    errno = 412
+    message = 'invalid callable'
