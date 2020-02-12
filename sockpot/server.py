@@ -12,9 +12,9 @@ from gevent.socket import error
 from gevent import signal
 import gevent
 
-from .conf.auth import AuthFlow
-from .conf import config
-from .conf.exc import ClientTerminated, ConfigurationError
+from sockpot.conf.auth import AuthFlow
+from sockpot.conf import config
+from sockpot.conf.exc import ClientTerminated, ConfigurationError
 from json.decoder import JSONDecodeError
 
 try:

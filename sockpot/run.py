@@ -2,9 +2,9 @@ import sys
 import re
 import os
 
-from .server import Server
-from .dummy import Dummy, dummy
-from .conf.utils import import_by_path
+from sockpot.server import Server
+from sockpot.dummy import Dummy, dummy
+from sockpot.conf.utils import import_by_path
 
 
 def find_calee(*sysargs):
@@ -13,7 +13,7 @@ def find_calee(*sysargs):
     posix_path = path_matcher.search(args)
     if posix_path:
         posix_path = posix_path.groups()[0]
-        os.environ['PYTHONPATH'] = posix_path + ':' + os.environ.get('PYTHONPATH', '').strip(':')
+        os.environ.setdefault('PYTHONPATH', posix_path + ':' + os.environ.get('PYTHONPATH', '').strip(':'))
     module_matcher = re.compile('--callee\s*=\s*([a-zA-z0-9_\-.]+)')
     module_path = module_matcher.search(args)
     if not module_path:
@@ -25,7 +25,12 @@ def find_calee(*sysargs):
             if not call_to or not callable(call_to):
                 raise ValueError
         except (ImportError, ValueError):
-            raise ValueError("Invalid callable")
+            try:
+                call_class, call_func = module_path.rsplit('.', 1)
+                call_class = import_by_path(call_class)
+                call_to = getattr(call_class, call_func)
+            except (ImportError, ValueError):
+                raise ValueError("Invalid callable")
     return call_to
 
 

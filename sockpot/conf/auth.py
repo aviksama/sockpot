@@ -99,6 +99,6 @@ class AuthFlow(object):
             self.socket.send(("SERVER_AUTH:"+digest).encode('utf-8'))
             return True
         except (error, timeout, IndexError, AssertionError, ValueError):
-            self.socket.send("Invalid Auth")
+            self.socket.send("Invalid Auth".encode('utf-8'))
             self.socket.close()
             return False

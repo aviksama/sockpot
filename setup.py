@@ -2,10 +2,10 @@ from setuptools import setup
 
 setup(
     name="sockpot",
-    version="0.1a1",
+    version="0.1a2",
     author='Avik',
     author_email="eml2avik@gmail.com",
-    packages=['sockpot'],
+    packages=['sockpot', 'sockpot/conf'],
     description="Multithreaded tcp based socket server and client",
     install_requires=['gevent>=1.2', 'six>=1.1'],
     entry_points={

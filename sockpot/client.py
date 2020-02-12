@@ -8,9 +8,9 @@ from os import error as oserror
 
 from six import string_types
 
-from .conf.auth import AuthFlow
-from .conf.exc import ConnectionError, MessageMalformed
-from .conf import config
+from sockpot.conf.auth import AuthFlow
+from sockpot.conf.exc import ConnectionError, MessageMalformed
+from sockpot.conf import config
 
 try:
     import ujson as json
