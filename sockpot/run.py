@@ -53,5 +53,6 @@ def serve():
     call_to = find_calee(*args)
     host, port, threads = find_serve_args(*args)
     connection = Server(host=host, port=port, threads=threads, call_to=call_to)
+    print("server running on %s:%s" % (host, port))
     print('Press Ctrl+C to quit')
     connection()

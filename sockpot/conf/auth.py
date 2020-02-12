@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import hashlib
 from socket import socket
 from socket import error, timeout
@@ -86,7 +87,7 @@ class AuthFlow(object):
     def start_server_operation(self):
         try:
             data = self.socket.recv(150) # maximum length it has to recv
-            data.decode('utf-8')
+            data = data.decode('utf-8')
             head, boundary, auth_name, client_token = data.rsplit(":")  # can cause ValueError
             assert(head == 'BOUNDARY')
             assert(auth_name == 'CLIENT_AUTH')

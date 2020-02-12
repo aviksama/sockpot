@@ -1,16 +1,21 @@
+from __future__ import unicode_literals
 import json
 import socket
 from socket import error, timeout
 import random
 import string
 from os import error as oserror
-from io import BytesIO
 
 from six import string_types
 
 from .conf.auth import AuthFlow
 from .conf.exc import ConnectionError, MessageMalformed
 from .conf import config
+
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 
 class Connection(object):
@@ -55,21 +60,23 @@ class Connection(object):
             raise MessageMalformed("only string object supported")
 
     def _listen(self):
-        dataset = BytesIO()
+        dataset = ''
         while self.connection:
             data = self.connection.recv(1024)
             if not data:
                 break
-            body_parts = data.rsplit(self._boundary, 1)
+            data = data.decode('utf-8')
+            if dataset:
+                data = dataset + data
+            body_parts = data.split(self._boundary)
             if len(body_parts) == 1:
-                ended = False
-                # not yet ended
+                dataset = body_parts[0]
+                continue
             else:
-                ended = True
-            dataset.write(body_parts[0])
-            if ended:
-                dataset.seek(0)
-                return dataset.read()
+                yieldable = body_parts[:-1]
+                if len(yieldable) > 1:
+                    return yieldable
+                return yieldable[0]
 
     def send(self, body=None, wait_for_reply=False, timeout_secs=10):
         # todo: json or message support should be taken from configurator
@@ -100,6 +107,6 @@ class Connection(object):
     def _create_boundary():
         # max length 96
         charlength = random.randint(11, 18)
-        part = lambda: ''.join(random.sample(string.letters+string.digits+'~!@#$%^&*',
+        part = lambda: ''.join(random.sample(string.ascii_letters+string.digits+'~!@#$%^&*',
                                              charlength))
         return '---' + part() + '_' * charlength * 3 + part() + '---'

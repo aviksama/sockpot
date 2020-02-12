@@ -1,21 +1,26 @@
+from __future__ import unicode_literals
 from gevent import monkey
 monkey.patch_all()
 
 import sys
-import json
 from socket import timeout
 from types import GeneratorType
-from io import BytesIO
+from io import StringIO
 
 from gevent import socket
 from gevent.socket import error
 from gevent import signal
 import gevent
-import six
 
 from .conf.auth import AuthFlow
 from .conf import config
 from .conf.exc import ClientTerminated, ConfigurationError
+from json.decoder import JSONDecodeError
+
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 
 class Server(object):
@@ -67,52 +72,50 @@ class Server(object):
     @staticmethod
     def listener(client_socket, client_addr, boundary):
         try:
-            initial = True
-            dataset = BytesIO()
             if not Server.call_to or not callable(Server.call_to):
                 raise ConfigurationError("No callable found for listener")
+            try:
+                func = Server.call_to.__func__  # staticmethod inside class
+            except AttributeError:
+                func = Server.call_to  # functions
+            # Server.chunked_yield(client_socket, boundary, func)
+            buffer = None
+            reply = False
             while client_socket:
-                data = client_socket.recv(1024)
+                chunk_size = 1024
+                data = client_socket.recv(chunk_size)
                 if not data:
                     Server._clients.pop(client_socket, None)
-                    raise ClientTerminated("Connection closed")
-                if initial is False:
+                    break
+                data = data.decode('utf-8')
+                try:
+                    head, new_data = data.split(boundary, 1)
+                    reply = json.loads(head).get('reply', False)
+                    data = new_data
+                except (ValueError, AttributeError, JSONDecodeError):
+                    pass
+                if buffer and not buffer.closed:
+                    pre_data = buffer.read()
+                    buffer.close()
+                    body = pre_data + data
+                else:
                     body = data
+                body_parts = body.split(boundary)
+                if len(body_parts) == 1:  # we are not ready to yield
+                    buffer = StringIO(body_parts[0])  # tested for python 3.7 only
+                    continue
                 else:
-                    try:
-                        head, body = data.split(boundary, 1)
-                        reply = json.loads(head).get('reply')
-                    except (ValueError, AttributeError):
-                        raise ClientTerminated("Malformed buffer")
-                    initial = False
-                body_parts = body.rsplit(boundary, 1)
-                body = body_parts[0]
-                if six.PY3 and not isinstance(body, bytes):
-                    body = bytes(body, encoding='utf-8')
-                dataset.write(body)
-                if len(body_parts) == 1:
-                    loopexit = False
-                else:
-                    loopexit = True
-
-                if loopexit:
-                    try:
-                        func = Server.call_to.__func__  # staticmethod inside class
-                    except AttributeError:
-                        func = Server.call_to  # functions
-                    dataset.seek(0)
-                    response_data = func(dataset.read())
-                    dataset = BytesIO()
-                    initial = True
-                    if reply is True:
-                        # todo: support for  GeneratorType for stream of data
-                        assert (not isinstance(response_data, GeneratorType))
-                        response_data = str(response_data)
-                        response = response_data + boundary + 'end'
-                        if not isinstance(response, bytes):
-                            response.encode('utf-8')
-                        client_socket.send(response)
-
+                    yieldable = body_parts[:-1]
+                    for y in yieldable:
+                        response_data = func(y)
+                        if reply is True:
+                            assert (not isinstance(response_data, GeneratorType))
+                            response_data = str(response_data)
+                            response = response_data + boundary
+                            if not isinstance(response, bytes):
+                                response = response.encode('utf-8')
+                            client_socket.send(response)
+                        break
         except timeout:
             sys.stderr.write(str(client_addr) + ': Connection timeout')
         except(ClientTerminated, ConfigurationError):

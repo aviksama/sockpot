@@ -5,7 +5,7 @@ setup(
     version="0.1a1",
     author='Avik',
     author_email="eml2avik@gmail.com",
-    packages=['sockpot', 'sockpot/conf'],
+    packages=['sockpot'],
     description="Multithreaded tcp based socket server and client",
     install_requires=['gevent>=1.2', 'six>=1.1'],
     entry_points={
